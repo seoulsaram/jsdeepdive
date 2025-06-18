@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실행 컨텍스트 스택 시각화</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            font-weight: 300;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .code-section {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            font-family: 'Courier New', monospace;
+            line-height: 1.8;
+            font-size: 16px;
+        }
+        
+        .code-section h3 {
+            color: #3498db;
+            margin-bottom: 15px;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        
+        .controls {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .step-btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            margin: 0 10px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .step-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4);
+        }
+        
+        .step-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .visualization-area {
+            display: flex;
+            gap: 40px;
+            margin: 40px 0;
+            min-height: 600px;
+        }
+        
+        .stack-container {
+            flex: 1;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .stack-title {
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: #2c3e50;
+        }
+        
+        .execution-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 400px;
+            justify-content: flex-end;
+            position: relative;
+        }
+        
+        .stack-item {
+            width: 280px;
+            padding: 20px;
+            margin: 5px 0;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            color: white;
+            font-size: 16px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: all 0.5s ease;
+            position: relative;
+        }
+        
+        .stack-item::before {
+            content: '📋';
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+        }
+        
+        .global-context {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+        
+        .foo-context {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        }
+        
+        .bar-context {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        }
+        
+        .current-executing {
+            border: 3px solid #f1c40f;
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(241, 196, 0, 0.4);
+        }
+        
+        .details-container {
+            flex: 1;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .step-info {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .step-info h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        
+        .step-info p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .lexical-env-preview {
+            background: #e8f5e8;
+            border-left: 4px solid #27ae60;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        
+        .lexical-env-preview h4 {
+            color: #27ae60;
+            margin-bottom: 10px;
+        }
+        
+        .binding {
+            background: #f1f2f6;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        
+        .step-counter {
+            background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        
+        .highlight {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .highlight strong {
+            color: #d63031;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        .slide-out {
+            animation: slideOut 0.5s ease-out;
+        }
+        
+        .arrow-indicator {
+            position: absolute;
+            right: -50px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #f1c40f;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>23.6 실행 컨텍스트의 생성과 식별자 검색 과정</h1>
+            <p>실행 컨텍스트 스택의 변화를 단계별로 시각화</p>
+        </div>
+        
+        <div class="content">
+            <div class="code-section">
+                <h3>📝 실행할 코드</h3>
+                <pre>var x = 1;
+const y = 2;
+
+function foo(a) {
+  var x = 3;
+  const y = 4;
+  
+  function bar(b) {
+    const z = 5;
+    console.log(a + b + x + y + z);
+  }
+  bar(10);
+}
+
+foo(20);</pre>
+            </div>
+            
+            <div class="controls">
+                <button class="step-btn" onclick="previousStep()" id="prevBtn">⬅️ 이전 단계</button>
+                <button class="step-btn" onclick="nextStep()" id="nextBtn">다음 단계 ➡️</button>
+                <button class="step-btn" onclick="reset()" id="resetBtn">🔄 처음부터</button>
+            </div>
+            
+            <div class="visualization-area">
+                <div class="stack-container">
+                    <h2 class="stack-title">📚 실행 컨텍스트 스택 (Call Stack)</h2>
+                    <div class="execution-stack" id="stack">
+                        <!-- 스택 아이템들이 동적으로 추가됩니다 -->
+                    </div>
+                </div>
+                
+                <div class="details-container">
+                    <div class="step-counter" id="stepCounter">
+                        1단계 / 10단계
+                    </div>
+                    <div class="step-info" id="stepInfo">
+                        <!-- 단계별 정보가 표시됩니다 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 0;
+        
+        const steps = [
+            {
+                title: "23.6.1 전역 객체 생성",
+                description: "전역 코드가 평가되기 이전에 전역 객체(window/global)가 생성됩니다.",
+                stack: [],
+                details: "브라우저에서는 window 객체, Node.js에서는 global 객체가 생성됩니다. 빌트인 전역 프로퍼티와 함수들이 포함됩니다.",
+                highlight: "아직 실행 컨텍스트는 생성되지 않은 상태입니다."
+            },
+            {
+                title: "23.6.2 전역 코드 평가",
+                description: "전역 실행 컨텍스트가 생성되고 실행 컨텍스트 스택에 푸시됩니다.",
+                stack: ["global"],
+                details: "전역 렉시컬 환경이 생성되고, var x, function foo는 객체 환경 레코드에, const y는 선언적 환경 레코드에 등록됩니다.",
+                lexicalEnv: {
+                    "객체 환경 레코드": ["x: undefined", "foo: function"],
+                    "선언적 환경 레코드": ["y: <uninitialized>"]
+                },
+                highlight: "호이스팅이 발생하는 단계입니다. var와 함수 선언문이 먼저 등록됩니다."
+            },
+            {
+                title: "23.6.3 전역 코드 실행",
+                description: "전역 코드가 순차적으로 실행됩니다. 변수에 값이 할당됩니다.",
+                stack: ["global"],
+                details: "x에 1이 할당되고, y에 2가 할당됩니다. foo 함수는 이미 평가 단계에서 등록되었습니다.",
+                lexicalEnv: {
+                    "객체 환경 레코드": ["x: 1", "foo: function"],
+                    "선언적 환경 레코드": ["y: 2"]
+                },
+                highlight: "foo(20) 함수 호출이 준비됩니다."
+            },
+            {
+                title: "23.6.4 foo 함수 코드 평가",
+                description: "foo 함수가 호출되어 foo 함수 실행 컨텍스트가 생성됩니다.",
+                stack: ["global", "foo"],
+                details: "foo 함수의 렉시컬 환경이 생성되고, 매개변수 a, 지역변수 x, y, 내부함수 bar가 등록됩니다.",
+                lexicalEnv: {
+                    "함수 환경 레코드": ["a: 20", "x: undefined", "y: <uninitialized>", "bar: function"],
+                    "외부 렉시컬 환경 참조": "전역 렉시컬 환경"
+                },
+                highlight: "foo 실행 컨텍스트가 스택의 최상위가 되어 현재 실행 중인 컨텍스트가 됩니다."
+            },
+            {
+                title: "23.6.5 foo 함수 코드 실행",
+                description: "foo 함수 내부의 코드가 실행됩니다. 지역변수에 값이 할당됩니다.",
+                stack: ["global", "foo"],
+                details: "지역변수 x에 3이 할당되고, y에 4가 할당됩니다. bar(10) 함수 호출이 준비됩니다.",
+                lexicalEnv: {
+                    "함수 환경 레코드": ["a: 20", "x: 3", "y: 4", "bar: function"],
+                    "외부 렉시컬 환경 참조": "전역 렉시컬 환경"
+                },
+                highlight: "bar(10) 함수 호출이 실행됩니다."
+            },
+            {
+                title: "23.6.6 bar 함수 코드 평가",
+                description: "bar 함수가 호출되어 bar 함수 실행 컨텍스트가 생성됩니다.",
+                stack: ["global", "foo", "bar"],
+                details: "bar 함수의 렉시컬 환경이 생성되고, 매개변수 b와 지역변수 z가 등록됩니다.",
+                lexicalEnv: {
+                    "함수 환경 레코드": ["b: 10", "z: <uninitialized>"],
+                    "외부 렉시컬 환경 참조": "foo 함수 렉시컬 환경"
+                },
+                highlight: "bar 실행 컨텍스트가 스택의 최상위가 됩니다."
+            },
+            {
+                title: "23.6.7 bar 함수 코드 실행",
+                description: "bar 함수의 코드가 실행되고 console.log가 호출됩니다.",
+                stack: ["global", "foo", "bar"],
+                details: "z에 5가 할당되고, console.log(a + b + x + y + z)가 실행됩니다. 식별자 검색이 스코프 체인을 따라 수행됩니다.",
+                lexicalEnv: {
+                    "함수 환경 레코드": ["b: 10", "z: 5"],
+                    "식별자 검색": "a(foo스코프), b(bar스코프), x(foo스코프), y(foo스코프), z(bar스코프)"
+                },
+                highlight: "스코프 체인을 통한 식별자 검색: bar → foo → global 순서로 탐색합니다."
+            },
+            {
+                title: "23.6.8 bar 함수 코드 실행 종료",
+                description: "bar 함수 실행이 완료되어 bar 실행 컨텍스트가 스택에서 제거됩니다.",
+                stack: ["global", "foo"],
+                details: "bar 함수 실행 컨텍스트가 pop되고, foo 함수 실행 컨텍스트가 다시 실행 중인 컨텍스트가 됩니다.",
+                lexicalEnv: {
+                    "함수 환경 레코드": ["a: 20", "x: 3", "y: 4", "bar: function"],
+                    "외부 렉시컬 환경 참조": "전역 렉시컬 환경"
+                },
+                highlight: "bar 렉시컬 환경은 가비지 컬렉션의 대상이 됩니다."
+            },
+            {
+                title: "23.6.9 foo 함수 코드 실행 종료",
+                description: "foo 함수 실행이 완료되어 foo 실행 컨텍스트가 스택에서 제거됩니다.",
+                stack: ["global"],
+                details: "foo 함수 실행 컨텍스트가 pop되고, 전역 실행 컨텍스트가 다시 실행 중인 컨텍스트가 됩니다.",
+                lexicalEnv: {
+                    "객체 환경 레코드": ["x: 1", "foo: function"],
+                    "선언적 환경 레코드": ["y: 2"]
+                },
+                highlight: "foo 렉시컬 환경은 가비지 컬렉션의 대상이 됩니다."
+            },
+            {
+                title: "23.6.10 전역 코드 실행 종료",
+                description: "모든 코드 실행이 완료되어 전역 실행 컨텍스트도 제거됩니다.",
+                stack: [],
+                details: "더 이상 실행할 코드가 없으므로 전역 실행 컨텍스트도 스택에서 제거되고 프로그램이 종료됩니다.",
+                lexicalEnv: {},
+                highlight: "프로그램 실행이 완전히 종료됩니다."
+            }
+        ];
+
+        function updateVisualization() {
+            const step = steps[currentStep];
+            
+            // 스택 업데이트
+            const stackElement = document.getElementById('stack');
+            stackElement.innerHTML = '';
+            
+            step.stack.forEach((context, index) => {
+                const stackItem = document.createElement('div');
+                stackItem.className = `stack-item ${context}-context`;
+                
+                if (index === step.stack.length - 1) {
+                    stackItem.classList.add('current-executing');
+                    stackItem.innerHTML = `
+                        ${getContextName(context)}
+                        <div class="arrow-indicator">👈</div>
+                    `;
+                } else {
+                    stackItem.textContent = getContextName(context);
+                }
+                
+                stackItem.classList.add('slide-in');
+                stackElement.appendChild(stackItem);
+            });
+            
+            // 단계 정보 업데이트
+            document.getElementById('stepCounter').textContent = `${currentStep + 1}단계 / ${steps.length}단계`;
+            
+            const stepInfo = document.getElementById('stepInfo');
+            stepInfo.innerHTML = `
+                <h3>${step.title}</h3>
+                <p><strong>설명:</strong> ${step.description}</p>
+                <p><strong>상세:</strong> ${step.details}</p>
+                
+                ${step.lexicalEnv ? `
+                    <div class="lexical-env-preview">
+                        <h4>🗂️ 현재 렉시컬 환경</h4>
+                        ${Object.entries(step.lexicalEnv).map(([key, value]) => 
+                            Array.isArray(value) 
+                                ? `<div><strong>${key}:</strong><br>${value.map(v => `<div class="binding">${v}</div>`).join('')}</div>`
+                                : `<div><strong>${key}:</strong> ${value}</div>`
+                        ).join('')}
+                    </div>
+                ` : ''}
+                
+                <div class="highlight">
+                    <strong>💡 핵심 포인트:</strong> ${step.highlight}
+                </div>
+            `;
+            
+            // 버튼 상태 업데이트
+            document.getElementById('prevBtn').disabled = currentStep === 0;
+            document.getElementById('nextBtn').disabled = currentStep === steps.length - 1;
+        }
+
+        function getContextName(context) {
+            const names = {
+                'global': '🌍 전역 실행 컨텍스트',
+                'foo': '🔧 foo 함수 실행 컨텍스트',
+                'bar': '⚡ bar 함수 실행 컨텍스트'
+            };
+            return names[context] || context;
+        }
+
+        function nextStep() {
+            if (currentStep < steps.length - 1) {
+                currentStep++;
+                updateVisualization();
+            }
+        }
+
+        function previousStep() {
+            if (currentStep > 0) {
+                currentStep--;
+                updateVisualization();
+            }
+        }
+
+        function reset() {
+            currentStep = 0;
+            updateVisualization();
+        }
+
+        // 초기화
+        updateVisualization();
+
+        // 키보드 단축키
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowRight') nextStep();
+            if (e.key === 'ArrowLeft') previousStep();
+            if (e.key === 'Home') reset();
+        });
+    </script>
+</body>
+</html>
