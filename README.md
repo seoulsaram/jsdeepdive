@@ -26,18 +26,15 @@
    object.test = '새로운 값'; //TypeError: Cannot assign to read only property
    ```
 3. 화살표 함수와 function(선언함수)의 성능차이를 이해합니다.
-4. 그 외 자바스크립트에 존재하는지도 몰랐던 다양한 현상과 api들을 알게 됩니다. 1. wrapper객체.. 2. 제너레이터 3. prototype에 대한 딥다이브 4. 변수, 함수의 평가 과정 5. 암묵적 타입 변환의 무서움
-   `jsx
-   // in react..
-   const data = []
 
-   return (
-   <>
-   {data.length && <div>안뇽!</div>} {/_ 화면에 0이 나와 ㅠㅠ _/}
-   </>
-   )
-   `
-   그 외 많은걸 알게 됨..
+4. 그 외 자바스크립트에 존재하는지도 몰랐던 다양한 현상과 api들을 알게 됩니다.
+   1. wrapper객체..
+   2. 제너레이터
+   3. prototype에 대한 딥다이브
+   4. 변수, 함수의 평가 과정
+   5. 암묵적 타입 변환의 무서움
+
+그 외 많은걸 알게 됨..
 
 <br/>
 <br/>
